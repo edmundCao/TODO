@@ -7,6 +7,8 @@
 //
 
 import UIKit
+import CoreData
+
 
 class TodoListViewController: UITableViewController {
 
@@ -14,7 +16,10 @@ class TodoListViewController: UITableViewController {
     var itemArray = [Item]()
     
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+//    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    
+    
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
 
     
 //    let defaults = UserDefaults.standard
@@ -22,10 +27,13 @@ class TodoListViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+        
 //        if let items = defaults.array(forKey: "ToDoListArray") as? [String] {
 //            itemArray = items
 //        }
-        print(dataFilePath)
+//        print(dataFilePath)
+//        let request: NSFetchRequest<Item> = Item.fetchRequest()
         loadItems()
         
 //        let newItem = Item()
@@ -95,26 +103,36 @@ class TodoListViewController: UITableViewController {
     }
     
     func saveItems(){
-        let encoder = PropertyListEncoder()
+//        let encoder = PropertyListEncoder()
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+            try context.save()
+//            let data = try encoder.encode(itemArray)
+//            try data.write(to: dataFilePath!)
         } catch {
             print("编码错误:\(error)")
         }
     }
     
-    func loadItems(){
-        if let data = try?Data(contentsOf:dataFilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-                itemArray = try decoder.decode([Item].self, from: data)
-                
-            } catch {
-                print("解码item错误！")
-            }
+    func loadItems(with request:NSFetchRequest<Item> = Item.fetchRequest()){
+        do {
+            itemArray = try context.fetch(request)
+        } catch {
+            print("从context获取数据错误:\(error)")
         }
+        tableView.reloadData()
+        
     }
+//    func loadItems(){
+//        if let data = try?Data(contentsOf:dataFilePath!) {
+//            let decoder = PropertyListDecoder()
+//            do {
+//                itemArray = try decoder.decode([Item].self, from: data)
+//
+//            } catch {
+//                print("解码item错误！")
+//            }
+//        }
+//    }
 
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
         var textField = UITextField()
@@ -123,8 +141,9 @@ class TodoListViewController: UITableViewController {
         let action = UIAlertAction(title: "添加项目", style: .default) {
             (action) in
             print(textField.text!)
-            let newItem = Item()
+            let newItem = Item(context: self.context)
             newItem.title = textField.text!
+            newItem.done = false
             self.itemArray.append(newItem)
 
             self.saveItems()
@@ -146,3 +165,33 @@ class TodoListViewController: UITableViewController {
     }
 }
 
+
+extension TodoListViewController:UISearchBarDelegate{
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request:NSFetchRequest<Item> = Item.fetchRequest()
+        let predicate = NSPredicate(format: "title CONTAINS[c] %@", searchBar.text!)
+        request.predicate = predicate
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+        request.sortDescriptors = [sortDescriptor]
+        loadItems(with:request)
+//        do {
+//            itemArray = try context.fetch(request)
+//        } catch {
+//            print("从context获取数据错误:\(error)")
+//        }
+//        tableView.reloadData()
+//        print(searchBar.text!)
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+
+            }
+            
+        }
+    }
+}
