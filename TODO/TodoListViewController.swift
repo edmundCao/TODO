@@ -15,6 +15,12 @@ class TodoListViewController: UITableViewController {
 //    var itemArray = ["购买水杯","吃药","修改密码"]
     var itemArray = [Item]()
     
+    var selectedCategory:Category? {
+        didSet {
+            loadItems()
+        }
+    }
+    
     
 //    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
     
@@ -34,7 +40,7 @@ class TodoListViewController: UITableViewController {
 //        }
 //        print(dataFilePath)
 //        let request: NSFetchRequest<Item> = Item.fetchRequest()
-        loadItems()
+//        loadItems()
         
 //        let newItem = Item()
 //        newItem.title = "购买水杯"
@@ -113,7 +119,16 @@ class TodoListViewController: UITableViewController {
         }
     }
     
-    func loadItems(with request:NSFetchRequest<Item> = Item.fetchRequest()){
+    func loadItems(with request:NSFetchRequest<Item> = Item.fetchRequest(), predicate:NSPredicate?=nil){
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        if let addtionalPredicate = predicate {
+            let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, addtionalPredicate])
+            request.predicate = compoundPredicate
+        } else {
+            request.predicate = categoryPredicate
+
+        }
+        
         do {
             itemArray = try context.fetch(request)
         } catch {
@@ -144,6 +159,7 @@ class TodoListViewController: UITableViewController {
             let newItem = Item(context: self.context)
             newItem.title = textField.text!
             newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             self.itemArray.append(newItem)
 
             self.saveItems()
@@ -189,9 +205,11 @@ extension TodoListViewController:UISearchBarDelegate{
             
             DispatchQueue.main.async {
                 searchBar.resignFirstResponder()
-
+                
             }
             
         }
     }
+    
+
 }
